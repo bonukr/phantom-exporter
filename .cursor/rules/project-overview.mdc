@@ -1,0 +1,38 @@
+---
+description: phantom-exporter 프로젝트 개요, 기술 스택, 아키텍처
+alwaysApply: true
+---
+
+# phantom-exporter 프로젝트 개요
+
+테스트/개발용 **가상 Prometheus Exporter 시뮬레이터**. 사용자가 URL별로 가짜 metric을
+정의하고, 그 값을 실시간으로 제어하면서 Prometheus가 스크랩할 수 있게 한다.
+
+참고 소스: `webdevops/simulation-exporter`(시뮬레이션 개념), `bonukr/html-hosting-n-viewer`(gin HTML 서빙).
+
+## 기술 스택 (필수 준수)
+
+- 언어: Go (`go 1.25.3`), 모듈 `github.com/bonukr/phantom-exporter`
+- 웹 프레임워크: **gin** (REST API + HTML 서빙, fullstack 단일 바이너리)
+- 로깅: **slog** 기반 파일 로그
+- 설정/메트릭 저장소: **PostgreSQL** (접속 정보는 환경변수)
+- 프론트엔드: 웹(HTML) 기반 GUI, gin이 직접 서빙
+- 실행: **Docker** 기반. 디버깅은 Docker 없이 VSCode/Cursor에서 **F5**
+
+## 권장 디렉토리 구조
+
+```
+cmd/exporter/main.go      # 진입점
+internal/server/          # gin 라우터, 핸들러, 미들웨어
+internal/metrics/         # 메트릭 도메인 모델 + 시뮬레이션 값 생성기
+internal/store/           # PostgreSQL 저장소 (설정/메트릭 정의)
+internal/config/          # 환경변수 로딩
+internal/logging/         # slog 파일 로거 설정
+web/                      # HTML/CSS/JS (embed로 바이너리 포함 권장)
+```
+
+## 핵심 원칙
+
+- 단일 바이너리로 API, GUI, `/metrics` 엔드포인트를 모두 제공한다.
+- 모든 설정/메트릭 정의는 코드에 하드코딩하지 않고 PostgreSQL에서 읽는다.
+- 신규 코드 추가 시 위 레이어 경계(server / metrics / store / config)를 지킨다.

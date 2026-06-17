@@ -1,0 +1,37 @@
+---
+description: Go 백엔드 규칙 (gin, slog, PostgreSQL, 환경변수)
+globs: **/*.go
+alwaysApply: false
+---
+
+# Go 백엔드 규칙
+
+## gin
+
+- HTTP 라우팅/핸들러는 모두 gin 사용. `r := gin.New()` 후 Recovery + 커스텀 slog 미들웨어를 붙인다.
+- 라우트 그룹 분리: `/api/...`(JSON CRUD), `/metrics`(Prometheus 텍스트 노출), `/`(HTML GUI).
+- 핸들러는 얇게 유지하고 비즈니스 로직은 `internal/metrics`, `internal/store`로 위임한다.
+
+## slog 파일 로그
+
+- 표준 `log/slog`만 사용. 출력은 파일로 기록(예: `LOG_FILE` 환경변수, 기본 `./logs/phantom-exporter.log`).
+- JSON 핸들러 권장. 요청 로그는 gin 미들웨어에서 method/path/status/latency를 구조화 필드로 남긴다.
+- `fmt.Println`/`log.Print`로 로깅하지 말 것. 항상 slog 사용.
+
+```go
+logger := slog.New(slog.NewJSONHandler(logFile, &slog.HandlerOptions{Level: lvl}))
+logger.Info("request", "method", c.Request.Method, "path", c.FullPath(), "status", c.Writer.Status())
+```
+
+## PostgreSQL
+
+- 메트릭 정의/설정값은 PostgreSQL에 저장하고 거기서 읽는다. 하드코딩 금지.
+- 접속 정보는 **반드시 환경변수**로만 받는다. 코드/리포지토리에 자격증명 금지.
+  - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSLMODE` (또는 `DATABASE_URL`).
+- DB 접근은 `internal/store` 안에서만. 핸들러에서 직접 SQL 실행 금지.
+- 컨텍스트 전파: 모든 쿼리에 `context.Context`를 넘긴다.
+
+## 에러 처리
+
+- 에러는 `fmt.Errorf("...: %w", err)`로 래핑하고, 핸들러 경계에서 slog로 로깅 후 적절한 HTTP 상태 반환.
+- 에러를 조용히 무시(`_ = err`)하지 않는다.

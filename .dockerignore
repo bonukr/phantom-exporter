@@ -1,0 +1,10 @@
+.git
+.gitignore
+.vscode
+.cursor
+logs
+*.log
+README.md
+LICENSE
+Dockerfile
+docker-compose.yml

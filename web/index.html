@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>phantom-exporter</title>
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <span class="logo">👻</span>
+            <div>
+                <h1>phantom-exporter</h1>
+                <p>Virtual Prometheus exporter simulator</p>
+            </div>
+        </div>
+        <div id="status" class="status-pills">
+            <span class="pill" id="pill-db">DB --</span>
+            <span class="pill" id="pill-groups">Groups --</span>
+            <span class="pill" id="pill-metrics">Metrics --</span>
+            <span class="pill" id="pill-uptime">Uptime --</span>
+        </div>
+    </header>
+
+    <main class="layout">
+        <!-- Left: groups -->
+        <aside class="panel groups-panel">
+            <div class="panel-head">
+                <h2>Metric URLs</h2>
+                <button class="btn small" id="btn-add-group">+ URL</button>
+            </div>
+            <ul id="group-list" class="group-list"></ul>
+        </aside>
+
+        <!-- Center: metrics of selected group -->
+        <section class="panel metrics-panel">
+            <div class="panel-head">
+                <h2 id="metrics-title">Metrics</h2>
+                <div class="head-actions">
+                    <a id="scrape-link" class="btn small ghost" target="_blank" rel="noopener">/metrics</a>
+                    <button class="btn small" id="btn-add-metric" disabled>+ Metric</button>
+                </div>
+            </div>
+            <div id="metrics-empty" class="empty">Select a URL group to manage metrics.</div>
+            <table id="metrics-table" class="metrics-table hidden">
+                <thead>
+                    <tr>
+                        <th>Name</th><th>Type</th><th>Value mode</th>
+                        <th>Labels</th><th>Live value</th><th></th>
+                    </tr>
+                </thead>
+                <tbody id="metrics-body"></tbody>
+            </table>
+        </section>
+
+        <!-- Right: monitoring -->
+        <aside class="panel monitor-panel">
+            <div class="panel-head"><h2>Usage</h2></div>
+            <div id="usage" class="usage"></div>
+        </aside>
+    </main>
+
+    <!-- Group modal -->
+    <div class="modal-backdrop hidden" id="group-modal">
+        <div class="modal">
+            <h3 id="group-modal-title">New URL group</h3>
+            <label>Path (URL segment)
+                <input type="text" id="group-path" placeholder="app-a" />
+            </label>
+            <label>Name
+                <input type="text" id="group-name" placeholder="App A metrics" />
+            </label>
+            <div class="modal-actions">
+                <button class="btn ghost" data-close>Cancel</button>
+                <button class="btn" id="group-save">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metric modal -->
+    <div class="modal-backdrop hidden" id="metric-modal">
+        <div class="modal wide">
+            <h3 id="metric-modal-title">New metric</h3>
+            <div class="grid2">
+                <label>Name
+                    <input type="text" id="m-name" placeholder="http_requests_total" />
+                </label>
+                <label>Type
+                    <select id="m-type">
+                        <option value="counter">counter</option>
+                        <option value="gauge">gauge</option>
+                        <option value="histogram">histogram</option>
+                        <option value="summary">summary</option>
+                    </select>
+                </label>
+            </div>
+            <label>Description
+                <input type="text" id="m-desc" placeholder="Total HTTP requests" />
+            </label>
+            <div class="grid2">
+                <label>Value mode
+                    <select id="m-mode">
+                        <option value="random">random (0~1)</option>
+                        <option value="range">range (min~max)</option>
+                        <option value="fixed">fixed</option>
+                    </select>
+                </label>
+                <div class="value-fields">
+                    <label class="mode-range">Min<input type="number" step="any" id="m-min" value="0" /></label>
+                    <label class="mode-range">Max<input type="number" step="any" id="m-max" value="100" /></label>
+                    <label class="mode-fixed">Fixed<input type="number" step="any" id="m-fixed" value="1" /></label>
+                </div>
+            </div>
+            <div class="labels-block">
+                <div class="panel-head small-head">
+                    <h4>Labels</h4>
+                    <button class="btn small ghost" id="btn-add-label">+ Label</button>
+                </div>
+                <div id="label-rows"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn ghost" data-close>Cancel</button>
+                <button class="btn" id="metric-save">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

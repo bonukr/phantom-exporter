@@ -1,0 +1,37 @@
+---
+description: 메트릭 시뮬레이션 도메인 모델 및 값 생성 규칙
+globs: internal/metrics/**/*.go,internal/store/**/*.go
+alwaysApply: false
+---
+
+# 메트릭 도메인 모델
+
+## URL별 메트릭 그룹
+
+- 메트릭은 **노출 URL(경로)** 단위로 묶어서 관리한다 (예: `/metrics/app-a`, `/metrics/db`).
+- 각 URL 그룹은 0..N개의 메트릭 정의를 가진다. CRUD(조회/추가/변경/삭제) 모두 지원.
+
+## 메트릭 정의 필드
+
+메트릭 추가 시 아래를 등록한다.
+
+- `name`: 메트릭 명 (Prometheus 명명규칙 준수, `[a-zA-Z_:][a-zA-Z0-9_:]*`)
+- `type`: `counter` | `gauge` | `histogram` | `summary`
+- `description`: HELP 텍스트
+- `labels`: 라벨 키/값 셋 (라벨 조합별로 시계열 분리)
+- `value`: 값 생성 방식
+  - `fixed`: 고정 임의값
+  - `random`: 매 스크랩마다 랜덤
+  - `range`: `[min, max]` 범위 내 랜덤
+  - counter는 단조 증가만 허용 (감소 금지)
+
+## 값 생성기 (시뮬레이션)
+
+- 값 생성 로직은 `internal/metrics`의 generator로 캡슐화한다.
+- 실시간 오버라이드: GUI/API로 특정 메트릭 값을 즉시 설정할 수 있어야 하며, 오버라이드가 있으면 그 값을 우선 노출한다.
+- `/metrics` 응답은 Prometheus 텍스트 포맷으로 생성 (가능하면 `prometheus/client_golang` 사용).
+
+## 저장 (PostgreSQL)
+
+- 권장 테이블: `metric_groups`(url), `metric_defs`(group_id, name, type, description, value_mode, min, max, fixed_value), `metric_labels`(metric_id, key, value).
+- 정의 변경은 즉시 다음 스크랩에 반영되어야 한다 (캐시 사용 시 무효화 처리).
