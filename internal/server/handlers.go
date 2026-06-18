@@ -46,11 +46,12 @@ func (s *Server) handleScrape(c *gin.Context) {
 
 func (s *Server) handleStatus(c *gin.Context) {
 	ctx := c.Request.Context()
-	dbOK := s.store.Ping(ctx) == nil
+	configOK := s.store.Ping(ctx) == nil
 	count, _ := s.store.CountMetrics(ctx)
 	groups, _ := s.store.ListGroups(ctx)
 	c.JSON(http.StatusOK, gin.H{
-		"dbConnected":   dbOK,
+		"configOk":      configOK,
+		"configSource":  s.store.Source(),
 		"metricCount":   count,
 		"groupCount":    len(groups),
 		"uptimeSeconds": s.stats.Snapshot().UptimeSeconds,
@@ -91,6 +92,10 @@ func (s *Server) createGroup(c *gin.Context) {
 		return
 	}
 	g, err := s.store.CreateGroup(c.Request.Context(), req.Path, req.Name)
+	if errors.Is(err, store.ErrConflict) {
+		c.JSON(http.StatusConflict, gin.H{"error": "path already exists"})
+		return
+	}
 	if err != nil {
 		s.fail(c, err)
 		return
@@ -132,6 +137,10 @@ func (s *Server) updateGroup(c *gin.Context) {
 		return
 	}
 	if err := s.store.UpdateGroup(c.Request.Context(), id, req.Path, req.Name); err != nil {
+		if errors.Is(err, store.ErrConflict) {
+			c.JSON(http.StatusConflict, gin.H{"error": "path already exists"})
+			return
+		}
 		s.failNotFound(c, err)
 		return
 	}

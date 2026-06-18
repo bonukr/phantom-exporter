@@ -31,6 +31,18 @@ go.work.sum
 logs/
 *.log
 
+# runtime settings (rewritten by the app); keep settings.example/
+settings/
+
+# dist build output (scripts under dist/ are tracked)
+dist/phantom-exporter
+dist/phantom-exporter-amd64
+dist/logs/
+dist/settings/
+dist/web/
+dist/*.pid
+dist/phantom-exporter.env
+
 # Editor/IDE
 # .idea/
 # .vscode/

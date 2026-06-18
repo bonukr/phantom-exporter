@@ -4,36 +4,10 @@ services:
     ports:
       - "8080:8080"
     environment:
-      PORT: "8080"
-      DB_HOST: db
-      DB_PORT: "5432"
-      DB_USER: phantom
-      DB_PASSWORD: phantom
-      DB_NAME: phantom
-      DB_SSLMODE: disable
-      LOG_FILE: /app/logs/phantom-exporter.log
-      LOG_LEVEL: info
+      H2H_PORT: "8080"
+      H2H_SETTINGS_DIR: /app/settings
+      H2H_LOG_FILE: /app/logs/phantom-exporter.log
+      H2H_LOG_LEVEL: info
     volumes:
+      - ./settings:/app/settings
       - ./logs:/app/logs
-    depends_on:
-      db:
-        condition: service_healthy
-
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: phantom
-      POSTGRES_PASSWORD: phantom
-      POSTGRES_DB: phantom
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U phantom"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  pgdata:

@@ -12,14 +12,10 @@
             "program": "${workspaceFolder}/cmd/exporter",
             "cwd": "${workspaceFolder}",
             "env": {
-                "PORT": "8080",
-                "DB_HOST": "localhost",
-                "DB_PORT": "5432",
-                "DB_USER": "phantom",
-                "DB_PASSWORD": "phantom",
-                "DB_NAME": "phantom",
-                "DB_SSLMODE": "disable",
-                "LOG_FILE": "./logs/phantom-exporter.log"
+                "H2H_PORT": "8088",
+                "H2H_SETTINGS_DIR": "./settings",
+                "H2H_LOG_FILE": "./logs/phantom-exporter.log",
+                "H2H_LOG_LEVEL": "debug"
             }
         }
     ]

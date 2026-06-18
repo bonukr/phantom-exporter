@@ -16,7 +16,7 @@
             </div>
         </div>
         <div id="status" class="status-pills">
-            <span class="pill" id="pill-db">DB --</span>
+            <span class="pill" id="pill-config">Config --</span>
             <span class="pill" id="pill-groups">Groups --</span>
             <span class="pill" id="pill-metrics">Metrics --</span>
             <span class="pill" id="pill-uptime">Uptime --</span>
@@ -61,6 +61,20 @@
         </aside>
     </main>
 
+    <!-- Scrape tester -->
+    <section class="panel tester-panel">
+        <div class="panel-head">
+            <h2>Scrape Test</h2>
+            <div class="head-actions tester-controls">
+                <code id="tester-url">/metrics/...</code>
+                <button class="btn small" id="btn-run-scrape" disabled>Run ▶</button>
+                <button class="btn small ghost" id="btn-clear-scrape">Clear</button>
+            </div>
+        </div>
+        <div id="tester-meta" class="tester-meta"></div>
+        <pre id="tester-output" class="tester-output">Select a URL group, then click Run to call its /metrics endpoint and inspect the response.</pre>
+    </section>
+
     <!-- Group modal -->
     <div class="modal-backdrop hidden" id="group-modal">
         <div class="modal">
@@ -104,12 +118,17 @@
                         <option value="random">random (0~1)</option>
                         <option value="range">range (min~max)</option>
                         <option value="fixed">fixed</option>
+                        <option value="increment">increment (+step/scrape)</option>
+                        <option value="ramp">ramp (min→max sawtooth)</option>
+                        <option value="step">step (staircase levels)</option>
+                        <option value="rate">rate (per second, +/-)</option>
                     </select>
                 </label>
                 <div class="value-fields">
-                    <label class="mode-range">Min<input type="number" step="any" id="m-min" value="0" /></label>
-                    <label class="mode-range">Max<input type="number" step="any" id="m-max" value="100" /></label>
-                    <label class="mode-fixed">Fixed<input type="number" step="any" id="m-fixed" value="1" /></label>
+                    <label class="f-min"><span id="m-min-label">Min</span><input type="number" step="any" id="m-min" value="0" /></label>
+                    <label class="f-max">Max<input type="number" step="any" id="m-max" value="100" /></label>
+                    <label class="f-fixed">Fixed<input type="number" step="any" id="m-fixed" value="1" /></label>
+                    <label class="f-step"><span id="m-step-label">Step</span><input type="number" step="any" id="m-step" value="1" /></label>
                 </div>
             </div>
             <div class="labels-block">

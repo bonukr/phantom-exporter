@@ -19,19 +19,26 @@ alwaysApply: false
 - `type`: `counter` | `gauge` | `histogram` | `summary`
 - `description`: HELP 텍스트
 - `labels`: 라벨 키/값 셋 (라벨 조합별로 시계열 분리)
-- `value`: 값 생성 방식
-  - `fixed`: 고정 임의값
-  - `random`: 매 스크랩마다 랜덤
-  - `range`: `[min, max]` 범위 내 랜덤
-  - counter는 단조 증가만 허용 (감소 금지)
+- `valueMode`: 값 생성 방식 (필요 필드: `minValue`/`maxValue`/`fixedValue`/`step`)
+  - `fixed`: `fixedValue` 고정
+  - `random`: 매 스크랩 0~1 랜덤
+  - `range`: `[min, max]` 균등 랜덤
+  - `increment`: 매 스크랩 `step`씩 증가(기본 1), 무한. `min`=시작값
+  - `ramp`: 매 스크랩 `step`씩 증가하다 `max` 초과 시 `min`으로 복귀(톱니)
+  - `step`: `[min,max]`를 `step`개 레벨로 나눠 매 스크랩 한 단계씩 순환(계단)
+  - `rate`: **경과 시간(초)** 기준 `min + step*elapsed` 선형 증감(`step<0`=감소). `min`=시작값
+  - counter 타입은 위와 별개로 기본 단조 증가(감소 금지)
 
 ## 값 생성기 (시뮬레이션)
 
 - 값 생성 로직은 `internal/metrics`의 generator로 캡슐화한다.
+- 스크랩 횟수 기준(`increment`/`ramp`/`step`/`counter`)과 경과 시간 기준(`rate`) 상태는 메트릭 ID로 메모리에 보관한다. 정의 변경/삭제 시 `Generator.Reset(id)`로 상태를 초기화한다.
 - 실시간 오버라이드: GUI/API로 특정 메트릭 값을 즉시 설정할 수 있어야 하며, 오버라이드가 있으면 그 값을 우선 노출한다.
-- `/metrics` 응답은 Prometheus 텍스트 포맷으로 생성 (가능하면 `prometheus/client_golang` 사용).
+- `/metrics` 응답은 Prometheus 텍스트 포맷으로 생성한다.
 
-## 저장 (PostgreSQL)
+## 저장 (settings 폴더)
 
-- 권장 테이블: `metric_groups`(url), `metric_defs`(group_id, name, type, description, value_mode, min, max, fixed_value), `metric_labels`(metric_id, key, value).
-- 정의 변경은 즉시 다음 스크랩에 반영되어야 한다 (캐시 사용 시 무효화 처리).
+- 설정은 `H2H_SETTINGS_DIR` 안에 그룹별 파일(`<path>.yml`)로 저장한다. 각 파일은 단일 그룹(`metrics[].labels[]` 포함).
+- 도메인 모델(`metrics.Group/Metric/Label`)에는 `json`과 `yaml` 태그를 함께 둔다.
+- ID는 저장소 로드 시 자동 부여(`assignIDs`)하고, 변경 시 해당 그룹 파일로 다시 기록한다.
+- 정의 변경은 즉시 다음 스크랩에 반영되어야 한다.

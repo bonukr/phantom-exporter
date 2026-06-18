@@ -14,7 +14,7 @@ alwaysApply: false
 
 ## slog 파일 로그
 
-- 표준 `log/slog`만 사용. 출력은 파일로 기록(예: `LOG_FILE` 환경변수, 기본 `./logs/phantom-exporter.log`).
+- 표준 `log/slog`만 사용. 출력은 파일로 기록(예: `H2H_LOG_FILE` 환경변수, 기본 `./logs/phantom-exporter.log`).
 - JSON 핸들러 권장. 요청 로그는 gin 미들웨어에서 method/path/status/latency를 구조화 필드로 남긴다.
 - `fmt.Println`/`log.Print`로 로깅하지 말 것. 항상 slog 사용.
 
@@ -23,13 +23,14 @@ logger := slog.New(slog.NewJSONHandler(logFile, &slog.HandlerOptions{Level: lvl}
 logger.Info("request", "method", c.Request.Method, "path", c.FullPath(), "status", c.Writer.Status())
 ```
 
-## PostgreSQL
+## 설정 저장소 (settings 폴더)
 
-- 메트릭 정의/설정값은 PostgreSQL에 저장하고 거기서 읽는다. 하드코딩 금지.
-- 접속 정보는 **반드시 환경변수**로만 받는다. 코드/리포지토리에 자격증명 금지.
-  - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSLMODE` (또는 `DATABASE_URL`).
-- DB 접근은 `internal/store` 안에서만. 핸들러에서 직접 SQL 실행 금지.
-- 컨텍스트 전파: 모든 쿼리에 `context.Context`를 넘긴다.
+- 메트릭 정의/설정값은 **settings 폴더의 그룹별 YAML 파일**에 저장하고 거기서 읽는다. 하드코딩 금지.
+- 폴더 경로는 환경변수 `H2H_SETTINGS_DIR`(기본 `./settings`)로 받는다. 비어 있으면 기본값으로 자동 생성.
+- 파일명은 그룹 path: `settings/<path>.yml`. 그룹 path 변경 시 파일도 rename(삭제+생성)한다.
+- 파일 I/O는 `internal/store` 안에서만. 핸들러에서 직접 파일을 읽고 쓰지 않는다.
+- 전체 그룹을 메모리에 두고 mutex로 보호하며, 변경 시 영향받는 그룹 파일만 temp + rename으로 원자적 저장.
+- 저장소 메서드 시그니처는 `context.Context`를 유지한다(향후 백엔드 교체 대비).
 
 ## 에러 처리
 

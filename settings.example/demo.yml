@@ -1,0 +1,44 @@
+# Example group file for the settings directory.
+#
+# Each group lives in its own file named after the group's path:
+#   settings/<path>.yml   ->  exposed at /metrics/<path>
+#
+# Files are auto-created with defaults on first run when H2H_SETTINGS_DIR is empty,
+# and are rewritten by the GUI/API whenever you make changes.
+id: 1
+path: demo
+name: Demo metrics
+metrics:
+  - id: 1
+    name: http_requests_total
+    type: counter          # counter | gauge | histogram | summary
+    description: Total number of HTTP requests
+    valueMode: range       # random | range | fixed
+    minValue: 1
+    maxValue: 10
+    fixedValue: 0
+    labels:
+      - key: method
+        value: GET
+      - key: code
+        value: "200"
+  - id: 2
+    name: temperature_celsius
+    type: gauge
+    description: Simulated temperature in Celsius
+    valueMode: range
+    minValue: 10
+    maxValue: 30
+    fixedValue: 0
+    labels:
+      - key: sensor
+        value: room-1
+  - id: 3
+    name: up
+    type: gauge
+    description: Whether the target is up (1) or down (0)
+    valueMode: fixed
+    minValue: 0
+    maxValue: 0
+    fixedValue: 1
+    labels: []

@@ -40,11 +40,12 @@ function toast(message, isError) {
 async function refreshStatus() {
     try {
         const s = await api("GET", "/api/status");
-        setPill("pill-db", "DB " + (s.dbConnected ? "OK" : "DOWN"), s.dbConnected);
+        setPill("pill-config", "Config " + (s.configOk ? "OK" : "ERR"), s.configOk);
+        document.getElementById("pill-config").title = s.configSource || "";
         setPill("pill-groups", "Groups " + s.groupCount, null);
         setPill("pill-metrics", "Metrics " + s.metricCount, null);
         setPill("pill-uptime", "Uptime " + formatUptime(s.uptimeSeconds), null);
-    } catch (e) { setPill("pill-db", "DB DOWN", false); }
+    } catch (e) { setPill("pill-config", "Config ERR", false); }
 }
 
 function setPill(id, text, ok) {
@@ -125,11 +126,14 @@ async function selectGroup(id) {
     renderGroups();
     const g = await api("GET", "/api/groups/" + id);
     state.metrics = g.metrics || [];
+    state.selectedGroupPath = g.path;
     document.getElementById("metrics-title").textContent = "Metrics · /" + g.path;
     document.getElementById("btn-add-metric").disabled = false;
     const link = document.getElementById("scrape-link");
     link.href = "/metrics/" + g.path;
     link.textContent = "/metrics/" + g.path;
+    document.getElementById("tester-url").textContent = "/metrics/" + g.path;
+    document.getElementById("btn-run-scrape").disabled = false;
     renderMetrics();
 }
 
@@ -139,9 +143,13 @@ async function deleteGroup(g) {
         await api("DELETE", "/api/groups/" + g.id);
         if (state.selectedGroupId === g.id) {
             state.selectedGroupId = null;
+            state.selectedGroupPath = null;
             state.metrics = [];
             renderMetrics();
             document.getElementById("btn-add-metric").disabled = true;
+            document.getElementById("btn-run-scrape").disabled = true;
+            document.getElementById("tester-url").textContent = "/metrics/...";
+            clearScrape();
         }
         await loadGroups();
         toast("Group deleted");
@@ -203,6 +211,10 @@ function renderMetrics() {
 function valueModeText(m) {
     if (m.valueMode === "fixed") return `fixed (${m.fixedValue})`;
     if (m.valueMode === "range") return `range [${m.minValue}, ${m.maxValue}]`;
+    if (m.valueMode === "increment") return `increment (+${m.step || 1})`;
+    if (m.valueMode === "ramp") return `ramp [${m.minValue}, ${m.maxValue}] +${m.step || 1}`;
+    if (m.valueMode === "step") return `step [${m.minValue}, ${m.maxValue}] / ${m.step || 5} levels`;
+    if (m.valueMode === "rate") return `rate (${m.minValue} ${m.step >= 0 ? "+" : ""}${m.step || 0}/s)`;
     return "random";
 }
 
@@ -258,6 +270,7 @@ function openMetricModal(metric) {
     document.getElementById("m-min").value = metric ? metric.minValue : 0;
     document.getElementById("m-max").value = metric ? metric.maxValue : 100;
     document.getElementById("m-fixed").value = metric ? metric.fixedValue : 1;
+    document.getElementById("m-step").value = metric && metric.step ? metric.step : 1;
     renderLabelRows(metric ? metric.labels : []);
     updateModeFields();
     show("metric-modal");
@@ -290,10 +303,26 @@ function collectLabels() {
     return labels;
 }
 
+const MODE_FIELDS = {
+    random: [],
+    range: ["min", "max"],
+    fixed: ["fixed"],
+    increment: ["min", "step"],
+    ramp: ["min", "max", "step"],
+    step: ["min", "max", "step"],
+    rate: ["min", "step"],
+};
+
 function updateModeFields() {
     const mode = document.getElementById("m-mode").value;
-    document.querySelectorAll(".mode-range").forEach(e => e.style.display = mode === "range" ? "" : "none");
-    document.querySelectorAll(".mode-fixed").forEach(e => e.style.display = mode === "fixed" ? "" : "none");
+    const fields = MODE_FIELDS[mode] || [];
+    ["min", "max", "fixed", "step"].forEach(f => {
+        document.querySelectorAll(".f-" + f).forEach(e => e.style.display = fields.includes(f) ? "" : "none");
+    });
+    document.getElementById("m-step-label").textContent =
+        mode === "step" ? "Levels" : mode === "rate" ? "Rate/sec" : "Step";
+    document.getElementById("m-min-label").textContent =
+        (mode === "increment" || mode === "rate") ? "Start" : "Min";
 }
 
 async function saveMetric() {
@@ -305,6 +334,7 @@ async function saveMetric() {
         minValue: parseFloat(document.getElementById("m-min").value) || 0,
         maxValue: parseFloat(document.getElementById("m-max").value) || 0,
         fixedValue: parseFloat(document.getElementById("m-fixed").value) || 0,
+        step: parseFloat(document.getElementById("m-step").value) || 0,
         labels: collectLabels(),
     };
     if (!payload.name) { toast("Name is required", true); return; }
@@ -318,6 +348,51 @@ async function saveMetric() {
         await selectGroup(state.selectedGroupId);
         toast("Metric saved");
     } catch (e) { toast(e.message, true); }
+}
+
+// ---- Scrape tester ----
+
+async function runScrape() {
+    if (!state.selectedGroupPath) { toast("Select a URL group first", true); return; }
+    const url = "/metrics/" + state.selectedGroupPath;
+    const out = document.getElementById("tester-output");
+    const meta = document.getElementById("tester-meta");
+    const btn = document.getElementById("btn-run-scrape");
+    btn.disabled = true;
+    out.textContent = "Calling " + url + " ...";
+    meta.innerHTML = "";
+    const started = performance.now();
+    try {
+        const res = await fetch(url, { headers: { "Cache-Control": "no-cache" } });
+        const text = await res.text();
+        const ms = Math.round(performance.now() - started);
+        const lines = text.split("\n").filter(l => l && !l.startsWith("#")).length;
+        const okClass = res.ok ? "ok" : "bad";
+        meta.innerHTML = `
+            <span class="chip ${okClass}">Status <b>${res.status} ${res.statusText}</b></span>
+            <span class="chip">Latency <b>${ms} ms</b></span>
+            <span class="chip">Size <b>${formatBytes(text.length)}</b></span>
+            <span class="chip">Series <b>${lines}</b></span>
+            <span class="chip">At <b>${new Date().toLocaleTimeString()}</b></span>`;
+        out.textContent = text || "(empty response)";
+    } catch (e) {
+        meta.innerHTML = `<span class="chip bad">Error <b>${escapeHtml(e.message)}</b></span>`;
+        out.textContent = "Request failed.";
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function clearScrape() {
+    document.getElementById("tester-meta").innerHTML = "";
+    document.getElementById("tester-output").textContent =
+        "Select a URL group, then click Run to call its /metrics endpoint and inspect the response.";
+}
+
+function formatBytes(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+    return (n / 1024 / 1024).toFixed(1) + " MB";
 }
 
 // ---- utils ----
@@ -338,6 +413,8 @@ function init() {
     document.getElementById("metric-save").addEventListener("click", saveMetric);
     document.getElementById("btn-add-label").addEventListener("click", () => addLabelRow("", ""));
     document.getElementById("m-mode").addEventListener("change", updateModeFields);
+    document.getElementById("btn-run-scrape").addEventListener("click", runScrape);
+    document.getElementById("btn-clear-scrape").addEventListener("click", clearScrape);
     document.querySelectorAll("[data-close]").forEach(b =>
         b.addEventListener("click", () => document.querySelectorAll(".modal-backdrop").forEach(m => m.classList.add("hidden"))));
     document.querySelectorAll(".modal-backdrop").forEach(bd =>

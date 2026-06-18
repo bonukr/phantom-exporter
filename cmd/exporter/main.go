@@ -27,7 +27,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	st, err := store.New(ctx, cfg.DSN(), logger)
+	st, err := store.New(ctx, cfg.SettingsDir, logger)
 	if err != nil {
 		logger.Error("failed to init store", "error", err)
 		os.Exit(1)

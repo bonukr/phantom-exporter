@@ -10,8 +10,8 @@ alwaysApply: false
 
 - 멀티스테이지 Dockerfile: 빌드 스테이지(golang) → 런타임 스테이지(distroless/alpine).
 - `web/`를 `embed`로 포함하므로 런타임 이미지에 정적 파일 복사 불필요.
-- `docker-compose.yml`로 app + PostgreSQL을 함께 기동. DB 접속 정보는 compose의 `environment`로 주입.
-- 컨테이너는 환경변수(`DB_*`, `LOG_FILE`, 포트 등)로만 설정한다.
+- DB가 없으므로 app 단일 서비스. 설정(settings 폴더)/로그는 볼륨으로 보존한다.
+- 컨테이너는 환경변수(`H2H_SETTINGS_DIR`, `H2H_LOG_FILE`, `H2H_PORT` 등)로만 설정한다.
 
 ```yaml
 services:
@@ -19,24 +19,17 @@ services:
     build: .
     ports: ["8080:8080"]
     environment:
-      DB_HOST: db
-      DB_PORT: "5432"
-      DB_USER: phantom
-      DB_PASSWORD: phantom
-      DB_NAME: phantom
-    depends_on: [db]
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: phantom
-      POSTGRES_PASSWORD: phantom
-      POSTGRES_DB: phantom
+      H2H_SETTINGS_DIR: /app/settings
+      H2H_LOG_FILE: /app/logs/phantom-exporter.log
+    volumes:
+      - ./settings:/app/settings
+      - ./logs:/app/logs
 ```
 
 ## 디버깅 (Docker 미사용, F5)
 
-- 디버깅은 Docker 없이 VSCode/Cursor에서 **F5**로 실행한다.
-- `.vscode/launch.json`에 Go delve 구성 + 환경변수 제공. DB는 로컬 또는 compose의 db만 띄워 사용.
+- 디버깅은 Docker 없이 VSCode/Cursor에서 **F5**로 실행한다. DB 의존성 없음.
+- `.vscode/launch.json`에 Go delve 구성 + 환경변수 제공. 자격증명 등 비밀값은 커밋 금지.
 
 ```json
 {
@@ -49,9 +42,10 @@ services:
       "mode": "debug",
       "program": "${workspaceFolder}/cmd/exporter",
       "env": {
-        "DB_HOST": "localhost", "DB_PORT": "5432",
-        "DB_USER": "phantom", "DB_PASSWORD": "phantom", "DB_NAME": "phantom",
-        "LOG_FILE": "./logs/phantom-exporter.log"
+        "H2H_PORT": "8080",
+        "H2H_SETTINGS_DIR": "./settings",
+        "H2H_LOG_FILE": "./logs/phantom-exporter.log",
+        "H2H_LOG_LEVEL": "debug"
       }
     }
   ]
